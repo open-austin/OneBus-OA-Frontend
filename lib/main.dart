@@ -114,6 +114,7 @@ class _MyHomePageState extends State<MyHomePage> {
   static List<StaticPositionGeoPoint> getNearbyStopsAndPois(
     Future<Location> currentLocation,
   ) {
+    // create staticPoints to store the location of bus stops
     List<StaticPositionGeoPoint> staticPoints = [];
     currentLocation
         .then((currentLocation) {
@@ -244,59 +245,123 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   List<StaticPositionGeoPoint> staticPoints;
+  late List<GeoPoint> allGeoPoints = [];
+  late MapController mapController;
 
   _MapScreenState(List<StaticPositionGeoPoint> staticPointsList)
-    : staticPoints = staticPointsList,
-      super();
+      : staticPoints = staticPointsList,
+        super() {
+    // Extract geo points from staticPoints
+    for (var staticPoint in staticPointsList) {
+      // Access the points through the geoPoints property
+      allGeoPoints.addAll(staticPoint.geoPoints);
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    // init the position using the user location
-    final mapController = MapController.withUserPosition(
+  void initState() {
+    super.initState();
+    mapController = MapController.withUserPosition(
       trackUserLocation: UserTrackingOption(
         enableTracking: true,
         unFollowUser: false,
       ),
     );
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('OneBus')),
-      body: OSMFlutter(
-        controller: mapController,
-        osmOption: OSMOption(
-          zoomOption: ZoomOption(initZoom: 13), // Initial zoom level
-          userTrackingOption: UserTrackingOption(
-            enableTracking: true, // Enable user location tracking
-            unFollowUser: false,
+      body: Row(
+        children: [
+          // Map takes 70% of the width
+          Expanded(
+            flex: 7,
+            child: OSMFlutter(
+              controller: mapController,
+              osmOption: OSMOption(
+                zoomOption: ZoomOption(initZoom: 13),
+                userTrackingOption: UserTrackingOption(
+                  enableTracking: true,
+                  unFollowUser: false,
+                ),
+                roadConfiguration: RoadOption(roadColor: Colors.blueAccent),
+                userLocationMarker: UserLocationMaker(
+                  personMarker: const MarkerIcon(
+                    icon: Icon(
+                      Icons.location_history_rounded,
+                      color: Colors.blue,
+                      size: 36,
+                    ),
+                  ),
+                  directionArrowMarker: const MarkerIcon(
+                    icon: Icon(Icons.double_arrow, size: 36),
+                  ),
+                ),
+                staticPoints: staticPoints,
+              ),
+              onGeoPointClicked: (geoPoint) {
+                print(
+                  'Marker clicked at: ${geoPoint.latitude}, ${geoPoint.longitude}',
+                );
+              },
+              onLocationChanged: (geoPoint) {
+                print(
+                  'User location changed to: ${geoPoint.latitude}, ${geoPoint.longitude}',
+                );
+              },
+            ),
           ),
-          roadConfiguration: RoadOption(roadColor: Colors.blueAccent),
-          userLocationMarker: UserLocationMaker(
-            personMarker: const MarkerIcon(
-              icon: Icon(
-                Icons.location_history_rounded,
-                color: Colors.blue,
-                size: 36,
+          // ListView takes 30% of the width
+          Expanded(
+            flex: 3,
+            child: Container(
+              color: Colors.grey[200],
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Points of Interest',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: allGeoPoints.length,
+                      itemBuilder: (context, index) {
+                        final point = allGeoPoints[index];
+                        return Card(
+                          margin: EdgeInsets.all(8),
+                          child: ListTile(
+                            title: Text('Point ${index + 1}'),
+                            subtitle: Text(
+                              'Lat: ${point.latitude.toStringAsFixed(6)}\n'
+                              'Lon: ${point.longitude.toStringAsFixed(6)}'
+                              
+                            ),
+                            onTap: () {
+                              mapController.moveTo(
+                                GeoPoint(
+                                  latitude: point.latitude,
+                                  longitude: point.longitude,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
-            directionArrowMarker: const MarkerIcon(
-              icon: Icon(Icons.double_arrow, size: 36),
-            ),
           ),
-          // Need to use static points to avoid icon issue: https://github.com/liodali/osm_flutter/issues/541
-          staticPoints: staticPoints,
-          //  [StaticPositionGeoPoint('stopGeoPoints', MarkerIcon(icon: Icon(Icons.bus_alert, color: Colors.red, size: 28)), [GeoPoint(latitude: 30.315717, longitude:-97.73635)]),
-          //  StaticPositionGeoPoint('poiGeoPoints', MarkerIcon(icon: Icon(Icons.place, color: Colors.orange, size: 28)), [GeoPoint(latitude: 30.325717, longitude:-97.74635)])],
-        ),
-        onGeoPointClicked: (geoPoint) {
-          print(
-            'Marker clicked at: ${geoPoint.latitude}, ${geoPoint.longitude}',
-          );
-        },
-        onLocationChanged: (geoPoint) {
-          print(
-            'User location changed to: ${geoPoint.latitude}, ${geoPoint.longitude}',
-          );
-        },
+        ],
       ),
     );
   }
