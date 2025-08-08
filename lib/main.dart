@@ -2,6 +2,7 @@ import 'package:fl_location/fl_location.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
 import 'package:http/http.dart' as http;
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'dart:io';
 import 'dart:convert' as convert;
 
@@ -38,6 +39,7 @@ class PointOfInterest {
   final String stopName;
   final int routeId;
   final String name;
+  final String amenity;
 
   PointOfInterest({
     required this.latitude,
@@ -45,6 +47,7 @@ class PointOfInterest {
     required this.stopName,
     required this.routeId,
     required this.name,
+    required this.amenity,
   });
 
   factory PointOfInterest.fromJson(Map<String, dynamic> json) {
@@ -54,6 +57,7 @@ class PointOfInterest {
       stopName: json['stop_name'],
       routeId: json['route_id'],
       name: json['name'],
+      amenity: json['amenity'],
     );
   }
 }
@@ -74,6 +78,18 @@ class ApiResponse {
           .toList(),
     );
   }
+}
+
+class MapContent {
+  final List<StaticPositionGeoPoint> staticPoints;
+  final Map<GeoPoint, BusStop> stops;
+  final Map<GeoPoint, PointOfInterest> pois;
+
+  MapContent({
+    required this.staticPoints,
+    required this.stops,
+    required this.pois,
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -97,11 +113,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String _message = 'Press the button!';
-  List<StaticPositionGeoPoint> staticPoints;
+  final MapContent mapContent;
 
   _MyHomePageState()
-    : staticPoints = getNearbyStopsAndPois(getLocation()),
+    // TODO: We may want to change this to call the API when the button is pressed and
+    // display a loading indicator until complete. Right now we're just assuming that the data will
+    // be available by the time the map is created.
+    : mapContent = getNearbyStopsAndPois(getLocation()),
       super();
 
   static Future<Location> getLocation() async {
@@ -111,10 +129,12 @@ class _MyHomePageState extends State<MyHomePage> {
     //}
   }
 
-  static List<StaticPositionGeoPoint> getNearbyStopsAndPois(
+  static MapContent getNearbyStopsAndPois(
     Future<Location> currentLocation,
   ) {
     List<StaticPositionGeoPoint> staticPoints = [];
+    Map<GeoPoint, BusStop> stops = {};
+    Map<GeoPoint, PointOfInterest> pois = {};
     currentLocation
         .then((currentLocation) {
           print('Current location retrieved');
@@ -128,22 +148,47 @@ class _MyHomePageState extends State<MyHomePage> {
               'Fetched ${response.stops.length} bus stops and ${response.pois.length} POIs',
             );
 
-            List<GeoPoint> stopGeoPoints = response.stops
-                .map(
-                  (stop) => GeoPoint(
-                    latitude: stop.latitude,
-                    longitude: stop.longitude,
-                  ),
-                )
-                .toList();
-            List<GeoPoint> poiGeoPoints = response.pois
-                .map(
-                  (poi) => GeoPoint(
-                    latitude: poi.latitude,
-                    longitude: poi.longitude,
-                  ),
-                )
-                .toList();
+            List<GeoPoint> stopGeoPoints = [];
+            for (var stop in response.stops) {
+              GeoPoint geoPoint = GeoPoint(
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+              );
+              stops[geoPoint] = stop;
+              stopGeoPoints.add(geoPoint);
+            }
+
+            List<GeoPoint> poiGeoPoints = [];
+            List<GeoPoint> restaurantGeoPoints = [];
+            List<GeoPoint> cafeGeoPoints = [];
+            List<GeoPoint> barGeoPoints = [];
+            List<GeoPoint> worshipGeoPoints = [];
+            for (var poi in response.pois) {
+              GeoPoint geoPoint = GeoPoint(
+                latitude: poi.latitude,
+                longitude: poi.longitude,
+              );
+
+              if (stops.containsKey(geoPoint)) {
+                // If the POI is at the same exact coordinates as a bus stop, skip it
+                print('Skipping POI at the same location as bus stop: ${poi.name} at ${geoPoint.latitude}, ${geoPoint.longitude}');
+                continue;
+              }
+              pois[geoPoint] = poi;
+
+              if (poi.amenity == 'restaurant') {
+                restaurantGeoPoints.add(geoPoint);
+              } else if (poi.amenity == 'cafe') {
+                cafeGeoPoints.add(geoPoint);
+              } else if (poi.amenity == 'bar') {
+                barGeoPoints.add(geoPoint);
+              } else if (poi.amenity == 'place_of_worship') {
+                worshipGeoPoints.add(geoPoint);
+              } else {
+                poiGeoPoints.add(geoPoint);
+              }
+            }
+
 
             staticPoints.add(
               StaticPositionGeoPoint(
@@ -163,13 +208,51 @@ class _MyHomePageState extends State<MyHomePage> {
                 poiGeoPoints,
               ),
             );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'restaurantGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.restaurant, color: Colors.green, size: 28),
+                ),
+                restaurantGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'cafeGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.local_cafe, color: Colors.brown, size: 28),
+                ),
+                cafeGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'barGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.local_bar, color: Colors.blue, size: 28),
+                ),
+                barGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'worshipGeoPoints',
+                MarkerIcon(
+                  // TODO: Replace with a generic place of worship icon
+                  icon: Icon(Icons.church, color: Colors.purple, size: 28),
+                ),
+                worshipGeoPoints,
+              ),
+            );
           });
         })
         .catchError((error) {
           print('Error fetching bus stops and POIs: $error');
+          throw Exception('Failed to fetch bus stops and POIs');
         });
 
-    return staticPoints;
+    return MapContent(staticPoints: staticPoints, stops: stops, pois: pois);
   }
 
   static Future<ApiResponse> fetchBusStopsAndPois(
@@ -205,24 +288,24 @@ class _MyHomePageState extends State<MyHomePage> {
   void _handleButtonPressed() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => MapScreen(staticPoints)),
+      MaterialPageRoute(builder: (context) => MapScreen(mapContent)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Button Example')),
+      appBar: AppBar(title: const Text('OneBus')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(_message, style: const TextStyle(fontSize: 24)),
+            Text("Click here to see nearby bus stops and places you can visit.", style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 20), // Adds some space
             ElevatedButton(
               onPressed:
                   _handleButtonPressed, // The function called on button press
-              child: const Text('Click Me'),
+              child: const Text('Show the map!'),
             ),
           ],
         ),
@@ -232,22 +315,18 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class MapScreen extends StatefulWidget {
-  List<StaticPositionGeoPoint> staticPoints;
+  final MapContent mapContent;
 
-  MapScreen(List<StaticPositionGeoPoint> staticPointList)
-    : staticPoints = staticPointList,
-      super();
+  MapScreen(this.mapContent);
 
   @override
-  _MapScreenState createState() => _MapScreenState(staticPoints);
+  _MapScreenState createState() => _MapScreenState(mapContent);
 }
 
 class _MapScreenState extends State<MapScreen> {
-  List<StaticPositionGeoPoint> staticPoints;
+  MapContent mapContent;
 
-  _MapScreenState(List<StaticPositionGeoPoint> staticPointsList)
-    : staticPoints = staticPointsList,
-      super();
+  _MapScreenState(this.mapContent);
 
   @override
   Widget build(BuildContext context) {
@@ -283,13 +362,44 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           // Need to use static points to avoid icon issue: https://github.com/liodali/osm_flutter/issues/541
-          staticPoints: staticPoints,
-          //  [StaticPositionGeoPoint('stopGeoPoints', MarkerIcon(icon: Icon(Icons.bus_alert, color: Colors.red, size: 28)), [GeoPoint(latitude: 30.315717, longitude:-97.73635)]),
-          //  StaticPositionGeoPoint('poiGeoPoints', MarkerIcon(icon: Icon(Icons.place, color: Colors.orange, size: 28)), [GeoPoint(latitude: 30.325717, longitude:-97.74635)])],
+          staticPoints: mapContent.staticPoints,
         ),
         onGeoPointClicked: (geoPoint) {
-          print(
-            'Marker clicked at: ${geoPoint.latitude}, ${geoPoint.longitude}',
+          String title = '';
+          String content = '';
+          if (mapContent.stops.containsKey(geoPoint)) {
+            BusStop stop = mapContent.stops[geoPoint]!;
+            title = 'Bus Stop: ${stop.stopName}';
+            content = 'Stop Details: ${stop.headSign}';
+          } else if (mapContent.pois.containsKey(geoPoint)) {
+            PointOfInterest poi = mapContent.pois[geoPoint]!;
+            title = poi.name;
+            // Get a title case version of the amenity type
+            String poiType = poi.amenity[0].toUpperCase() +
+                poi.amenity.substring(1).toLowerCase().replaceAll('_', ' ');
+            content = '$poiType on ${poi.routeId} bus route';
+          } else {
+            title = 'Unknown Location';
+            content = 'No information available for this location.';
+            print('Clicked on an unknown location: $geoPoint');
+          }
+          // When a marker is clicked, show a popup with PointerInterceptor
+          showDialog(
+            context: context,
+            builder: (context) => PointerInterceptor(
+              // The PointerInterceptor is crucial here for web platforms
+              child: AlertDialog(
+                title: Text(title),
+                content: Text(content),
+                actions: [
+                  TextButton(
+                    // This button will work on web thanks to PointerInterceptor
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('Close'),
+                  ),
+                ],
+              ),
+            ),
           );
         },
         onLocationChanged: (geoPoint) {
