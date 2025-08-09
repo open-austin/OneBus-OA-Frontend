@@ -7,9 +7,9 @@ import 'dart:io';
 import 'dart:convert' as convert;
 
 void main() {
+  print('🎯 MAIN FUNCTION RUNNING'); // 👈 MUST appear
   runApp(MyApp());
 }
-
 class BusStop {
   final double longitude;
   final double latitude;
@@ -132,7 +132,6 @@ class _MyHomePageState extends State<MyHomePage> {
   static MapContent getNearbyStopsAndPois(
     Future<Location> currentLocation,
   ) {
-    // create staticPoints to store the location of bus stops
     List<StaticPositionGeoPoint> staticPoints = [];
     Map<GeoPoint, BusStop> stops = {};
     Map<GeoPoint, PointOfInterest> pois = {};
@@ -317,6 +316,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class MapScreen extends StatefulWidget {
   final MapContent mapContent;
+  
 
   MapScreen(this.mapContent);
 
@@ -325,125 +325,127 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  List<StaticPositionGeoPoint> staticPoints;
-  late List<GeoPoint> allGeoPoints = [];
-  late MapController mapController;
-
-  _MapScreenState(List<StaticPositionGeoPoint> staticPointsList)
-      : staticPoints = staticPointsList,
-        super() {
-    // Extract geo points from staticPoints
-    for (var staticPoint in staticPointsList) {
-      // Access the points through the geoPoints property
-      allGeoPoints.addAll(staticPoint.geoPoints);
-    }
-  }
+  MapContent mapContent;
+  
+  _MapScreenState(this.mapContent);
 
   @override
-  void initState() {
-    super.initState();
-    mapController = MapController.withUserPosition(
+  Widget build(BuildContext context) {
+
+    // init the position using the user location
+    final mapController = MapController.withUserPosition(
       trackUserLocation: UserTrackingOption(
         enableTracking: true,
         unFollowUser: false,
       ),
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('OneBus')),
-      body: Row(
-        children: [
-          // Map takes 70% of the width
-          Expanded(
+      
+      body: 
+      Row(
+        children: [ 
+          Expanded( 
+            // Map takes 70% of width
             flex: 7,
             child: OSMFlutter(
-              controller: mapController,
-              osmOption: OSMOption(
-                zoomOption: ZoomOption(initZoom: 13),
-                userTrackingOption: UserTrackingOption(
-                  enableTracking: true,
-                  unFollowUser: false,
-                ),
-                roadConfiguration: RoadOption(roadColor: Colors.blueAccent),
-                userLocationMarker: UserLocationMaker(
-                  personMarker: const MarkerIcon(
-                    icon: Icon(
-                      Icons.location_history_rounded,
-                      color: Colors.blue,
-                      size: 36,
-                    ),
-                  ),
-                  directionArrowMarker: const MarkerIcon(
-                    icon: Icon(Icons.double_arrow, size: 36),
-                  ),
-                ),
-                staticPoints: staticPoints,
+            controller: mapController,
+            osmOption: OSMOption(
+              zoomOption: ZoomOption(initZoom: 13), // Initial zoom level
+              userTrackingOption: UserTrackingOption(
+                enableTracking: true, // Enable user location tracking
+                unFollowUser: false,
               ),
-              onGeoPointClicked: (geoPoint) {
-                print(
-                  'Marker clicked at: ${geoPoint.latitude}, ${geoPoint.longitude}',
-                );
-              },
-              onLocationChanged: (geoPoint) {
-                print(
-                  'User location changed to: ${geoPoint.latitude}, ${geoPoint.longitude}',
-                );
-              },
+              roadConfiguration: RoadOption(roadColor: Colors.blueAccent),
+              userLocationMarker: UserLocationMaker(
+                personMarker: const MarkerIcon(
+                  icon: Icon(
+                    Icons.location_history_rounded,
+                    color: Colors.blue,
+                    size: 36,
+                  ),
+                ),
+                directionArrowMarker: const MarkerIcon(
+                  icon: Icon(Icons.double_arrow, size: 36),
+                ),
+              ),
+              // Need to use static points to avoid icon issue: https://github.com/liodali/osm_flutter/issues/541
+              staticPoints: mapContent.staticPoints,
             ),
-          ),
-          // ListView takes 30% of the width
-          Expanded(
-            flex: 3,
-            child: Container(
-              color: Colors.grey[200],
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Points of Interest',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+            onGeoPointClicked: (geoPoint) {
+              String title = '';
+              String content = '';
+              if (mapContent.stops.containsKey(geoPoint)) {
+                BusStop stop = mapContent.stops[geoPoint]!;
+                title = 'Bus Stop: ${stop.stopName}';
+                content = 'Stop Details: ${stop.headSign}';
+              } else if (mapContent.pois.containsKey(geoPoint)) {
+                PointOfInterest poi = mapContent.pois[geoPoint]!;
+                title = poi.name;
+                // Get a title case version of the amenity type
+                String poiType = poi.amenity[0].toUpperCase() +
+                    poi.amenity.substring(1).toLowerCase().replaceAll('_', ' ');
+                content = '$poiType on ${poi.routeId} bus route';
+              } else {
+                title = 'Unknown Location';
+                content = 'No information available for this location.';
+                print('Clicked on an unknown location: $geoPoint');
+              }
+              // When a marker is clicked, show a popup with PointerInterceptor
+              showDialog(
+                context: context,
+                builder: (context) => PointerInterceptor(
+                  // The PointerInterceptor is crucial here for web platforms
+                  child: AlertDialog(
+                    title: Text(title),
+                    content: Text(content),
+                    actions: [
+                      TextButton(
+                        // This button will work on web thanks to PointerInterceptor
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('Close'),
                       ),
-                    ),
+                    ],
                   ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: allGeoPoints.length,
-                      itemBuilder: (context, index) {
-                        final point = allGeoPoints[index];
-                        return Card(
-                          margin: EdgeInsets.all(8),
-                          child: ListTile(
-                            title: Text('Point ${index + 1}'),
-                            subtitle: Text(
-                              'Lat: ${point.latitude.toStringAsFixed(6)}\n'
-                              'Lon: ${point.longitude.toStringAsFixed(6)}'
-                              
-                            ),
-                            onTap: () {
-                              mapController.moveTo(
-                                GeoPoint(
-                                  latitude: point.latitude,
-                                  longitude: point.longitude,
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
+            onLocationChanged: (geoPoint) {
+              print(
+                'User location changed to: ${geoPoint.latitude}, ${geoPoint.longitude}',
+              );
+            },
           ),
-        ],
-      ),
-    );
+        ),
+      // ListView takes 30% of width
+      
+      Expanded(
+        // TODO: Add how many stops it gets there
+        // TODO: See if can sort by distance 
+        // TODO: Add a option to filter by POT: cafe, restaurant etc.
+        flex: 3,
+        child: ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: mapContent.pois.length ,
+          itemBuilder: (BuildContext context, int index) {
+            final item = mapContent.pois.values.toList()[index];
+            return Card(
+              margin: EdgeInsets.all(8),
+              
+              child: ListTile(
+                title: Text('Point ${index + 1}'),
+
+                subtitle: Text(item.name)
+
+                      )
+                    );
+                },
+          physics: const ClampingScrollPhysics(), // Android-like
+
+              )
+            )
+          ]
+        )
+      );
+    } 
   }
-}
