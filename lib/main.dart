@@ -259,7 +259,11 @@ class _MyHomePageState extends State<MyHomePage> {
     GeoPoint currentLocation,
   ) async {
     // TODO: Update to support non-local API
-    var url = Uri.http('127.0.0.1:8000', 'api/');
+    // var url = Uri.http('127.0.0.1:8000', 'api/');
+    // For Android emulator
+    var url = Uri.http('10.0.2.2:8000', 'api/');  // 10.0.2.2 is the special alias to your host machine
+
+
     try {
       var response = await http.post(
         url,
@@ -331,7 +335,6 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     // init the position using the user location
     final mapController = MapController.withUserPosition(
       trackUserLocation: UserTrackingOption(
@@ -339,113 +342,139 @@ class _MapScreenState extends State<MapScreen> {
         unFollowUser: false,
       ),
     );
+    
     return Scaffold(
       appBar: AppBar(title: Text('OneBus')),
-      
-      body: 
-      Row(
+      body: Column(
         children: [ 
           Expanded( 
-            // Map takes 70% of width
-            flex: 7,
+            // Map takes 60% of height
+            flex: 6,
             child: OSMFlutter(
-            controller: mapController,
-            osmOption: OSMOption(
-              zoomOption: ZoomOption(initZoom: 13), // Initial zoom level
-              userTrackingOption: UserTrackingOption(
-                enableTracking: true, // Enable user location tracking
-                unFollowUser: false,
-              ),
-              roadConfiguration: RoadOption(roadColor: Colors.blueAccent),
-              userLocationMarker: UserLocationMaker(
-                personMarker: const MarkerIcon(
-                  icon: Icon(
-                    Icons.location_history_rounded,
-                    color: Colors.blue,
-                    size: 36,
+              controller: mapController,
+              osmOption: OSMOption(
+                zoomOption: ZoomOption(initZoom: 15), // Initial zoom level
+                userTrackingOption: UserTrackingOption(
+                  enableTracking: true, // Enable user location tracking
+                  unFollowUser: false,
+                ),
+                roadConfiguration: RoadOption(roadColor: Colors.blueAccent),
+                userLocationMarker: UserLocationMaker(
+                  personMarker: const MarkerIcon(
+                    icon: Icon(
+                      Icons.location_history_rounded,
+                      color: Colors.blue,
+                      size: 48,
+                    ),
+                  ),
+                  directionArrowMarker: const MarkerIcon(
+                    icon: Icon(Icons.double_arrow, size: 36),
                   ),
                 ),
-                directionArrowMarker: const MarkerIcon(
-                  icon: Icon(Icons.double_arrow, size: 36),
-                ),
+                // Need to use static points to avoid icon issue: https://github.com/liodali/osm_flutter/issues/541
+                staticPoints: mapContent.staticPoints,
               ),
-              // Need to use static points to avoid icon issue: https://github.com/liodali/osm_flutter/issues/541
-              staticPoints: mapContent.staticPoints,
+              onGeoPointClicked: (geoPoint) {
+                String title = '';
+                String content = '';
+                if (mapContent.stops.containsKey(geoPoint)) {
+                  BusStop stop = mapContent.stops[geoPoint]!;
+                  title = 'Bus Stop: ${stop.stopName}';
+                  content = 'Stop Details: ${stop.headSign}';
+                } else if (mapContent.pois.containsKey(geoPoint)) {
+                  PointOfInterest poi = mapContent.pois[geoPoint]!;
+                  title = poi.name;
+                  // Get a title case version of the amenity type
+                  String poiType = poi.amenity[0].toUpperCase() +
+                      poi.amenity.substring(1).toLowerCase().replaceAll('_', ' ');
+                  content = '$poiType on ${poi.routeId} bus route';
+                } else {
+                  title = 'Unknown Location';
+                  content = 'No information available for this location.';
+                  print('Clicked on an unknown location: $geoPoint');
+                }
+                // When a marker is clicked, show a popup with PointerInterceptor
+                showDialog(
+                  context: context,
+                  builder: (context) => PointerInterceptor(
+                    // The PointerInterceptor is crucial here for web platforms
+                    child: AlertDialog(
+                      title: Text(title),
+                      content: Text(content),
+                      actions: [
+                        TextButton(
+                          // This button will work on web thanks to PointerInterceptor
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              onLocationChanged: (geoPoint) {
+                print(
+                  'User location changed to: ${geoPoint.latitude}, ${geoPoint.longitude}',
+                );
+              },
             ),
-            onGeoPointClicked: (geoPoint) {
-              String title = '';
-              String content = '';
-              if (mapContent.stops.containsKey(geoPoint)) {
-                BusStop stop = mapContent.stops[geoPoint]!;
-                title = 'Bus Stop: ${stop.stopName}';
-                content = 'Stop Details: ${stop.headSign}';
-              } else if (mapContent.pois.containsKey(geoPoint)) {
-                PointOfInterest poi = mapContent.pois[geoPoint]!;
-                title = poi.name;
-                // Get a title case version of the amenity type
-                String poiType = poi.amenity[0].toUpperCase() +
-                    poi.amenity.substring(1).toLowerCase().replaceAll('_', ' ');
-                content = '$poiType on ${poi.routeId} bus route';
-              } else {
-                title = 'Unknown Location';
-                content = 'No information available for this location.';
-                print('Clicked on an unknown location: $geoPoint');
-              }
-              // When a marker is clicked, show a popup with PointerInterceptor
-              showDialog(
-                context: context,
-                builder: (context) => PointerInterceptor(
-                  // The PointerInterceptor is crucial here for web platforms
-                  child: AlertDialog(
-                    title: Text(title),
-                    content: Text(content),
-                    actions: [
-                      TextButton(
-                        // This button will work on web thanks to PointerInterceptor
-                        onPressed: () => Navigator.pop(context),
-                        child: Text('Close'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-            onLocationChanged: (geoPoint) {
-              print(
-                'User location changed to: ${geoPoint.latitude}, ${geoPoint.longitude}',
-              );
-            },
           ),
-        ),
-      // ListView takes 30% of width
-      
-      Expanded(
-        // TODO: Add how many stops it gets there
-        // TODO: See if can sort by distance 
-        // TODO: Add a option to filter by POT: cafe, restaurant etc.
-        flex: 3,
-        child: ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: mapContent.pois.length ,
-          itemBuilder: (BuildContext context, int index) {
-            final item = mapContent.pois.values.toList()[index];
-            return Card(
-              margin: EdgeInsets.all(8),
-              
-              child: ListTile(
-                title: Text('Point ${index + 1}'),
-
-                subtitle: Text(item.name)
-
-                      )
-                    );
-                },
-          physics: const ClampingScrollPhysics(), // Android-like
-
-              )
-            )
-          ]
-        )
-      );
-    } 
+          
+          // ListView takes 40% of height
+          Expanded(
+            flex: 4,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.grey[300]!)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Nearby Points of Interest',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: mapContent.pois.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        final item = mapContent.pois.values.toList()[index];
+                        return Card(
+                          margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          child: ListTile(
+                            title: Text('Point ${index + 1}'),
+                            subtitle: Text(item.name, style: TextStyle(fontSize: 16)),
+                          ),
+                        );
+                      },
+                      physics: const ClampingScrollPhysics(), // Android-like
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
+}
+
+
+// String _formatAmenity(String amenity) {
+//   return amenity[0].toUpperCase() + 
+//          amenity.substring(1).toLowerCase().replaceAll('_', ' ');
+// }
+
+// Icon _getAmenityIcon(String amenity) {
+//   switch (amenity) {
+//     case 'restaurant': return Icon(Icons.restaurant, color: Colors.green);
+//     case 'cafe': return Icon(Icons.local_cafe, color: Colors.brown);
+//     case 'bar': return Icon(Icons.local_bar, color: Colors.blue);
+//     case 'place_of_worship': return Icon(Icons.place, color: Colors.purple);
+//     default: return Icon(Icons.place, color: Colors.orange);
+//   }
+// }
