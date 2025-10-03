@@ -40,6 +40,7 @@ class PointOfInterest {
   final int routeId;
   final String name;
   final String amenity;
+  final String amenity_category;
 
   PointOfInterest({
     required this.latitude,
@@ -48,6 +49,8 @@ class PointOfInterest {
     required this.routeId,
     required this.name,
     required this.amenity,
+    required this.amenity_category,
+
   });
 
   factory PointOfInterest.fromJson(Map<String, dynamic> json) {
@@ -58,6 +61,7 @@ class PointOfInterest {
       routeId: json['route_id'],
       name: json['name'],
       amenity: json['amenity'],
+      amenity_category: json['amenity_category'],
     );
   }
 }
@@ -176,13 +180,13 @@ class _MyHomePageState extends State<MyHomePage> {
               }
               pois[geoPoint] = poi;
 
-              if (poi.amenity == 'restaurant') {
+              if (poi.amenity_category == 'Food Services') {
                 restaurantGeoPoints.add(geoPoint);
-              } else if (poi.amenity == 'cafe') {
+              } else if (poi.amenity_category == 'Commercial') {
                 cafeGeoPoints.add(geoPoint);
-              } else if (poi.amenity == 'bar') {
+              } else if (poi.amenity_category == 'Community Services') {
                 barGeoPoints.add(geoPoint);
-              } else if (poi.amenity == 'place_of_worship') {
+              } else if (poi.amenity_category == 'Recreation') {
                 worshipGeoPoints.add(geoPoint);
               } else {
                 poiGeoPoints.add(geoPoint);
@@ -261,7 +265,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // TODO: Update to support non-local API
     // var url = Uri.http('127.0.0.1:8000', 'api/');
     // For Android emulator
-    var url = Uri.http('10.0.2.2:8000', 'api/');  // 10.0.2.2 is the special alias to your host machine
+    var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');  // 10.0.2.2 is the special alias to your host machine
 
 
     try {
