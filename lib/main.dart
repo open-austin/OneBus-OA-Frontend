@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'dart:io';
 import 'dart:convert' as convert;
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   print('🎯 MAIN FUNCTION RUNNING'); // 👈 MUST appear
@@ -36,20 +37,22 @@ class BusStop {
 class PointOfInterest {
   final double longitude;
   final double latitude;
+  final String mapUrl;
   final String stopName;
   final int routeId;
   final String name;
   final String amenity;
-  final String amenity_category;
+  final String amenityCategory;
 
   PointOfInterest({
     required this.latitude,
     required this.longitude,
+    required this.mapUrl,
     required this.stopName,
     required this.routeId,
     required this.name,
     required this.amenity,
-    required this.amenity_category,
+    required this.amenityCategory,
 
   });
 
@@ -57,11 +60,12 @@ class PointOfInterest {
     return PointOfInterest(
       latitude: json['latitude'],
       longitude: json['longitude'],
+      mapUrl: json['map_url'],
       stopName: json['stop_name'],
       routeId: json['route_id'],
       name: json['name'],
       amenity: json['amenity'],
-      amenity_category: json['amenity_category'],
+      amenityCategory: json['amenity_category'],
     );
   }
 }
@@ -102,7 +106,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Button Example',
+      title: 'OneBus',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: const MyHomePage(),
     );
@@ -163,10 +167,10 @@ class _MyHomePageState extends State<MyHomePage> {
             }
 
             List<GeoPoint> poiGeoPoints = [];
-            List<GeoPoint> restaurantGeoPoints = [];
-            List<GeoPoint> cafeGeoPoints = [];
-            List<GeoPoint> barGeoPoints = [];
-            List<GeoPoint> worshipGeoPoints = [];
+            List<GeoPoint> foodServicesGeoPoints = [];
+            List<GeoPoint> commercialGeoPoints = [];
+            List<GeoPoint> communityServicesGeoPoints = [];
+            List<GeoPoint> recreationGeoPoints = [];
             for (var poi in response.pois) {
               GeoPoint geoPoint = GeoPoint(
                 latitude: poi.latitude,
@@ -180,19 +184,18 @@ class _MyHomePageState extends State<MyHomePage> {
               }
               pois[geoPoint] = poi;
 
-              if (poi.amenity_category == 'Food Services') {
-                restaurantGeoPoints.add(geoPoint);
-              } else if (poi.amenity_category == 'Commercial') {
-                cafeGeoPoints.add(geoPoint);
-              } else if (poi.amenity_category == 'Community Services') {
-                barGeoPoints.add(geoPoint);
-              } else if (poi.amenity_category == 'Recreation') {
-                worshipGeoPoints.add(geoPoint);
+              if (poi.amenityCategory == 'Food Services') {
+                foodServicesGeoPoints.add(geoPoint);
+              } else if (poi.amenityCategory == 'Commercial') {
+                commercialGeoPoints.add(geoPoint);
+              } else if (poi.amenityCategory == 'Community Services') {
+                communityServicesGeoPoints.add(geoPoint);
+              } else if (poi.amenityCategory == 'Recreation') {
+                recreationGeoPoints.add(geoPoint);
               } else {
                 poiGeoPoints.add(geoPoint);
               }
             }
-
 
             staticPoints.add(
               StaticPositionGeoPoint(
@@ -205,48 +208,48 @@ class _MyHomePageState extends State<MyHomePage> {
             );
             staticPoints.add(
               StaticPositionGeoPoint(
+                'foodServicesGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.restaurant, color: Colors.green, size: 28),
+                ),
+                foodServicesGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'commercialGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.shop, color: Colors.brown, size: 28),
+                ),
+                commercialGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'communityServicesGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.people, color: Colors.blue, size: 28),
+                ),
+                communityServicesGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'recreationGeoPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.theaters, color: Colors.purple, size: 28),
+                ),
+                recreationGeoPoints,
+              ),
+            );
+            // This should be empty unless a POI has an unknown amenityCategory
+            staticPoints.add(
+              StaticPositionGeoPoint(
                 'poiGeoPoints',
                 MarkerIcon(
                   icon: Icon(Icons.place, color: Colors.orange, size: 28),
                 ),
                 poiGeoPoints,
-              ),
-            );
-            staticPoints.add(
-              StaticPositionGeoPoint(
-                'restaurantGeoPoints',
-                MarkerIcon(
-                  icon: Icon(Icons.restaurant, color: Colors.green, size: 28),
-                ),
-                restaurantGeoPoints,
-              ),
-            );
-            staticPoints.add(
-              StaticPositionGeoPoint(
-                'cafeGeoPoints',
-                MarkerIcon(
-                  icon: Icon(Icons.local_cafe, color: Colors.brown, size: 28),
-                ),
-                cafeGeoPoints,
-              ),
-            );
-            staticPoints.add(
-              StaticPositionGeoPoint(
-                'barGeoPoints',
-                MarkerIcon(
-                  icon: Icon(Icons.local_bar, color: Colors.blue, size: 28),
-                ),
-                barGeoPoints,
-              ),
-            );
-            staticPoints.add(
-              StaticPositionGeoPoint(
-                'worshipGeoPoints',
-                MarkerIcon(
-                  // TODO: Replace with a generic place of worship icon
-                  icon: Icon(Icons.church, color: Colors.purple, size: 28),
-                ),
-                worshipGeoPoints,
               ),
             );
           });
@@ -262,10 +265,9 @@ class _MyHomePageState extends State<MyHomePage> {
   static Future<ApiResponse> fetchBusStopsAndPois(
     GeoPoint currentLocation,
   ) async {
-    // TODO: Update to support non-local API
-    // var url = Uri.http('127.0.0.1:8000', 'api/');
-    // For Android emulator
-    var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');  // 10.0.2.2 is the special alias to your host machine
+    // Swap which URL is commented out depending on whether you're testing locally or using the deployed API
+    //var url = Uri.http('127.0.0.1:8000', 'api/');
+    var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');
 
 
     try {
@@ -381,6 +383,7 @@ class _MapScreenState extends State<MapScreen> {
               onGeoPointClicked: (geoPoint) {
                 String title = '';
                 String content = '';
+                Uri? mapUrl;
                 if (mapContent.stops.containsKey(geoPoint)) {
                   BusStop stop = mapContent.stops[geoPoint]!;
                   title = 'Bus Stop: ${stop.stopName}';
@@ -392,6 +395,7 @@ class _MapScreenState extends State<MapScreen> {
                   String poiType = poi.amenity[0].toUpperCase() +
                       poi.amenity.substring(1).toLowerCase().replaceAll('_', ' ');
                   content = '$poiType on ${poi.routeId} bus route';
+                  mapUrl = Uri.tryParse(poi.mapUrl);
                 } else {
                   title = 'Unknown Location';
                   content = 'No information available for this location.';
@@ -404,7 +408,29 @@ class _MapScreenState extends State<MapScreen> {
                     // The PointerInterceptor is crucial here for web platforms
                     child: AlertDialog(
                       title: Text(title),
-                      content: Text(content),
+                      // If a map URL is available, include a link to Google Maps
+                      content: mapUrl != null
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(content),
+                                SizedBox(height: 10),
+                                GestureDetector(
+                                  onTap: () {
+                                    launchUrl(mapUrl!, mode: LaunchMode.externalApplication);
+                                  },
+                                  child: Text(
+                                    'View in Google Maps',
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(content),
                       actions: [
                         TextButton(
                           // This button will work on web thanks to PointerInterceptor
@@ -466,19 +492,3 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 }
-
-
-// String _formatAmenity(String amenity) {
-//   return amenity[0].toUpperCase() + 
-//          amenity.substring(1).toLowerCase().replaceAll('_', ' ');
-// }
-
-// Icon _getAmenityIcon(String amenity) {
-//   switch (amenity) {
-//     case 'restaurant': return Icon(Icons.restaurant, color: Colors.green);
-//     case 'cafe': return Icon(Icons.local_cafe, color: Colors.brown);
-//     case 'bar': return Icon(Icons.local_bar, color: Colors.blue);
-//     case 'place_of_worship': return Icon(Icons.place, color: Colors.purple);
-//     default: return Icon(Icons.place, color: Colors.orange);
-//   }
-// }
