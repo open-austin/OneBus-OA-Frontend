@@ -16,12 +16,15 @@ class BusStop {
   final double latitude;
   final String stopName;
   final String headSign;
+  final bool originStop;
+
 
   BusStop({
     required this.latitude,
     required this.longitude,
     required this.stopName,
     required this.headSign,
+    required this.originStop,
   });
 
   factory BusStop.fromJson(Map<String, dynamic> json) {
@@ -30,6 +33,7 @@ class BusStop {
       longitude: json['longitude'],
       stopName: json['stop_name'],
       headSign: json['headsign'],
+      originStop: json['origin_stop'],
     );
   }
 }
@@ -160,13 +164,19 @@ class _MyHomePageState extends State<MyHomePage> {
             );
 
             List<GeoPoint> stopGeoPoints = [];
+            List<GeoPoint> originStopPoints = [];
             for (var stop in response.stops) {
               GeoPoint geoPoint = GeoPoint(
                 latitude: stop.latitude,
                 longitude: stop.longitude,
               );
+
+              if (stop.originStop == true) { // Fixed: lowercase 'true' and proper parentheses
+                originStopPoints.add(geoPoint); // Fixed: added semicolon
+              } else {
+                stopGeoPoints.add(geoPoint); // Fixed: added semicolon
+              }
               stops[geoPoint] = stop;
-              stopGeoPoints.add(geoPoint);
             }
 
             List<GeoPoint> poiGeoPoints = [];
@@ -204,9 +214,18 @@ class _MyHomePageState extends State<MyHomePage> {
               StaticPositionGeoPoint(
                 'stopGeoPoints',
                 MarkerIcon(
-                  icon: Icon(Icons.bus_alert, color: Colors.red, size: 28),
+                  icon: Icon(Icons.bus_alert, color: const Color.fromARGB(255, 22, 18, 18), size: 28),
                 ),
                 stopGeoPoints,
+              ),
+            );
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'originStopPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.bus_alert, color: Colors.red, size: 28),
+                ),
+                originStopPoints,
               ),
             );
             staticPoints.add(
