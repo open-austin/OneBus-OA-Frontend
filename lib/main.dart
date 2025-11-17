@@ -16,12 +16,15 @@ class BusStop {
   final double latitude;
   final String stopName;
   final String headSign;
+  final bool originStop;
+
 
   BusStop({
     required this.latitude,
     required this.longitude,
     required this.stopName,
     required this.headSign,
+    required this.originStop,
   });
 
   factory BusStop.fromJson(Map<String, dynamic> json) {
@@ -30,6 +33,7 @@ class BusStop {
       longitude: json['longitude'],
       stopName: json['stop_name'],
       headSign: json['headsign'],
+      originStop: json['origin_stop'],
     );
   }
 }
@@ -40,6 +44,7 @@ class PointOfInterest {
   final String mapUrl;
   final String stopName;
   final int routeId;
+  final int numstopsAway;
   final String name;
   final String amenity;
   final String amenityCategory;
@@ -50,6 +55,7 @@ class PointOfInterest {
     required this.mapUrl,
     required this.stopName,
     required this.routeId,
+    required this.numstopsAway,
     required this.name,
     required this.amenity,
     required this.amenityCategory,
@@ -63,6 +69,7 @@ class PointOfInterest {
       mapUrl: json['map_url'],
       stopName: json['stop_name'],
       routeId: json['route_id'],
+      numstopsAway: json['num_stops_away'],
       name: json['name'],
       amenity: json['amenity'],
       amenityCategory: json['amenity_category'],
@@ -157,13 +164,19 @@ class _MyHomePageState extends State<MyHomePage> {
             );
 
             List<GeoPoint> stopGeoPoints = [];
+            List<GeoPoint> originStopPoints = [];
             for (var stop in response.stops) {
               GeoPoint geoPoint = GeoPoint(
                 latitude: stop.latitude,
                 longitude: stop.longitude,
               );
+              stopGeoPoints.add(geoPoint); 
+              if (stop.originStop == true) { 
+                originStopPoints.add(geoPoint); 
+              } else {
+                stopGeoPoints.add(geoPoint); 
+              }
               stops[geoPoint] = stop;
-              stopGeoPoints.add(geoPoint);
             }
 
             List<GeoPoint> poiGeoPoints = [];
@@ -201,9 +214,19 @@ class _MyHomePageState extends State<MyHomePage> {
               StaticPositionGeoPoint(
                 'stopGeoPoints',
                 MarkerIcon(
-                  icon: Icon(Icons.bus_alert, color: Colors.red, size: 28),
+                  icon: Icon(Icons.bus_alert, color: const Color.fromARGB(255, 22, 18, 18), size: 28),
                 ),
                 stopGeoPoints,
+              ),
+            );
+            // TODO: Decide if any other features should be added along with origin stops indicator
+            staticPoints.add(
+              StaticPositionGeoPoint(
+                'originStopPoints',
+                MarkerIcon(
+                  icon: Icon(Icons.bus_alert, color: const Color.fromARGB(255, 22, 18, 18), size: 28),
+                ),
+                originStopPoints,
               ),
             );
             staticPoints.add(
@@ -266,7 +289,7 @@ class _MyHomePageState extends State<MyHomePage> {
     GeoPoint currentLocation,
   ) async {
     // Swap which URL is commented out depending on whether you're testing locally or using the deployed API
-    //var url = Uri.http('127.0.0.1:8000', 'api/');
+    // var url = Uri.http('127.0.0.1:8000', 'api/');
     var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');
 
 
@@ -394,7 +417,7 @@ class _MapScreenState extends State<MapScreen> {
                   // Get a title case version of the amenity type
                   String poiType = poi.amenity[0].toUpperCase() +
                       poi.amenity.substring(1).toLowerCase().replaceAll('_', ' ');
-                  content = '$poiType on ${poi.routeId} bus route';
+                  content = '$poiType on ${poi.routeId} bus route, ${poi.numstopsAway} stops away!';
                   mapUrl = Uri.tryParse(poi.mapUrl);
                 } else {
                   title = 'Unknown Location';
@@ -471,12 +494,15 @@ class _MapScreenState extends State<MapScreen> {
                       padding: const EdgeInsets.all(8),
                       itemCount: mapContent.pois.length,
                       itemBuilder: (BuildContext context, int index) {
-                        final item = mapContent.pois.values.toList()[index];
+                        final sortedPois = mapContent.pois.values.toList()
+                          ..sort((a, b) => a.numstopsAway.compareTo(b.numstopsAway));
+                        final item = sortedPois[index];
                         return Card(
                           margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                           child: ListTile(
                             title: Text('Point ${index + 1}'),
                             subtitle: Text(item.name, style: TextStyle(fontSize: 16)),
+                            trailing: Text('${item.numstopsAway} stops away'),
                           ),
                         );
                       },
