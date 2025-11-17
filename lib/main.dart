@@ -170,11 +170,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 latitude: stop.latitude,
                 longitude: stop.longitude,
               );
-
-              if (stop.originStop == true) { // Fixed: lowercase 'true' and proper parentheses
-                originStopPoints.add(geoPoint); // Fixed: added semicolon
+              stopGeoPoints.add(geoPoint); 
+              if (stop.originStop == true) { 
+                originStopPoints.add(geoPoint); 
               } else {
-                stopGeoPoints.add(geoPoint); // Fixed: added semicolon
+                stopGeoPoints.add(geoPoint); 
               }
               stops[geoPoint] = stop;
             }
@@ -219,11 +219,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 stopGeoPoints,
               ),
             );
+            // TODO: Decide if any other features should be added along with origin stops indicator
             staticPoints.add(
               StaticPositionGeoPoint(
                 'originStopPoints',
                 MarkerIcon(
-                  icon: Icon(Icons.bus_alert, color: Colors.red, size: 28),
+                  icon: Icon(Icons.bus_alert, color: const Color.fromARGB(255, 22, 18, 18), size: 28),
                 ),
                 originStopPoints,
               ),
@@ -288,8 +289,8 @@ class _MyHomePageState extends State<MyHomePage> {
     GeoPoint currentLocation,
   ) async {
     // Swap which URL is commented out depending on whether you're testing locally or using the deployed API
-    var url = Uri.http('127.0.0.1:8000', 'api/');
-    // var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');
+    // var url = Uri.http('127.0.0.1:8000', 'api/');
+    var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');
 
 
     try {
