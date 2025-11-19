@@ -3,18 +3,15 @@ frontend:
   phases:
     preBuild:
       commands:
-        # Use dnf (newer package manager on Amazon Linux)
-        - dnf install -y xz curl tar
-        # Download Flutter
-        - curl -L -o flutter.tar.xz https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.16.9-stable.tar.xz
-        # Extract
-        - tar -xf flutter.tar.xz -C /tmp
+        # Clone Flutter from Git (no root privileges needed)
+        - git clone https://github.com/flutter/flutter.git -b stable /tmp/flutter
         - export PATH="$PATH:/tmp/flutter/bin"
         - flutter config --no-analytics
+        - flutter precache
         - flutter pub get
     build:
       commands:
-        - flutter build web --release --verbose
+        - flutter build web --release
   artifacts:
     baseDirectory: build/web
     files:
