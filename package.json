@@ -1,0 +1,27 @@
+{
+  "name": "onebus-oa-frontend",
+  "version": "1.0.0",
+  "description": "Frontend Development for OneBus",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmaliu97/OneBus-OA-Frontend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mmaliu97/OneBus-OA-Frontend/issues"
+  },
+  "homepage": "https://github.com/mmaliu97/OneBus-OA-Frontend#readme",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}

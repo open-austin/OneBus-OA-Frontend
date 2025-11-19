@@ -292,7 +292,6 @@ class _MyHomePageState extends State<MyHomePage> {
     // var url = Uri.http('127.0.0.1:8000', 'api/');
     var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');
 
-
     try {
       var response = await http.post(
         url,
