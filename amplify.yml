@@ -3,6 +3,9 @@ frontend:
   phases:
     preBuild:
       commands:
+        # Install xz-utils first
+        - apt-get update && apt-get install -y xz-utils curl
+        # Download and extract Flutter
         - curl -s https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.16.9-stable.tar.xz | tar xJ -C /tmp
         - export PATH="$PATH:/tmp/flutter/bin"
         - flutter config --no-analytics
