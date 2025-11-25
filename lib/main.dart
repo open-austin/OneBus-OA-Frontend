@@ -290,7 +290,7 @@ class _MyHomePageState extends State<MyHomePage> {
   ) async {
     // Swap which URL is commented out depending on whether you're testing locally or using the deployed API
     // var url = Uri.http('127.0.0.1:8000', 'api/');
-    var url = Uri.http('onebus.us-east-2.elasticbeanstalk.com', '/api/');
+    var url = Uri.https('onebus-oa.onrender.com', '/api/');
 
     try {
       var response = await http.post(
