@@ -9,7 +9,8 @@ You'll need to have [Flutter](https://docs.flutter.dev/get-started/install) inst
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/mmaliu97/OneBus-OA-Frontend.git
+   git clone https://github.com/open-austin/OneBus-OA-Frontend.git
+   cd OneBus-OA-Frontend
    ```
 2. Install packages
    ```sh
